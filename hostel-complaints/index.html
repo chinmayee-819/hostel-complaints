@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hostel Complaint Management</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+
+    <div class="hero">
+      <h1>Hostel Complaint Management</h1>
+      <p>Report maintenance problems and track how the hostel staff resolve them.</p>
+      <div class="btn-row">
+        <a href="new-complaint.html" class="btn">Report a Problem</a>
+        <a href="track.html" class="btn btn-outline">Track Complaints</a>
+      </div>
+    </div>
+
+    <h2 style="margin-bottom:12px;">Overview</h2>
+    <div class="grid grid-4" style="margin-bottom:26px;">
+      <div class="stat"><div class="num" id="statResidents">0</div><div class="label">Residents</div></div>
+      <div class="stat pending"><div class="num" id="statPending">0</div><div class="label">Pending</div></div>
+      <div class="stat progress"><div class="num" id="statProgress">0</div><div class="label">In Progress</div></div>
+      <div class="stat resolved"><div class="num" id="statResolved">0</div><div class="label">Resolved</div></div>
+    </div>
+
+    <h2 style="margin-bottom:12px;">Where do you want to go?</h2>
+    <div class="grid grid-2">
+      <a class="card link-card" href="residents.html">
+        <h2>👤 Residents</h2>
+        <p class="small">Add, view, edit and delete resident details.</p>
+      </a>
+      <a class="card link-card" href="new-complaint.html">
+        <h2>📝 New Complaint</h2>
+        <p class="small">Record a complaint with resident, room, category and description.</p>
+      </a>
+      <a class="card link-card" href="track.html">
+        <h2>🔍 Track Complaints</h2>
+        <p class="small">See the latest status of every complaint. Filter and search.</p>
+      </a>
+      <a class="card link-card" href="staff.html">
+        <h2>🛠️ Staff Panel</h2>
+        <p class="small">Staff can update status: Pending → In Progress → Resolved.</p>
+      </a>
+    </div>
+
+    <h2 style="margin:10px 0 12px;">Latest complaints</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Resident</th><th>Room</th><th>Category</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody id="latestBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>Hostel Complaint Management &copy; 2026</footer>
+
+  <script src="js/app.js"></script>
+  <script>
+    renderNav("index.html");
+
+    var residents = getResidents();
+    var complaints = getComplaints();
+
+    function count(status) {
+      return complaints.filter(function (c) { return c.status === status; }).length;
+    }
+    document.getElementById("statResidents").textContent = residents.length;
+    document.getElementById("statPending").textContent = count("Pending");
+    document.getElementById("statProgress").textContent = count("In Progress");
+    document.getElementById("statResolved").textContent = count("Resolved");
+
+    var latest = complaints.slice().sort(function (a, b) {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    }).slice(0, 5);
+
+    var body = document.getElementById("latestBody");
+    if (latest.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="empty">No complaints yet.</td></tr>';
+    } else {
+      body.innerHTML = latest.map(function (c) {
+        return "<tr><td>" + esc(c.residentName) + "</td><td>" + esc(c.room) + "</td><td>" +
+               esc(c.category) + "</td><td>" + badge(c.status) + "</td><td>" + formatDate(c.createdAt) + "</td></tr>";
+      }).join("");
+    }
+  </script>
+</body>
+</html>

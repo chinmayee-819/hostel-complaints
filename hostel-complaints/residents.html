@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Residents - Hostel Complaint Management</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Residents</h1>
+    <p class="subtitle">Add, view, edit and delete resident details.</p>
+
+    <!-- Add / Edit form -->
+    <div class="card">
+      <h2 id="formTitle">Add New Resident</h2>
+      <form id="residentForm" novalidate>
+        <input type="hidden" id="residentId">
+        <div class="grid grid-2">
+          <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" placeholder="e.g. Ravi Kumar">
+            <div class="error" id="nameErr"></div>
+          </div>
+          <div class="form-group">
+            <label for="room">Room Number *</label>
+            <input type="text" id="room" placeholder="e.g. A-101">
+            <div class="error" id="roomErr"></div>
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone (10 digits) *</label>
+            <input type="text" id="phone" maxlength="10" placeholder="9876543210">
+            <div class="error" id="phoneErr"></div>
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="name@example.com">
+            <div class="error" id="emailErr"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn" id="saveBtn">Add Resident</button>
+          <button type="button" class="btn btn-secondary" id="cancelBtn" style="display:none;">Cancel Edit</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Residents list -->
+    <div class="card">
+      <h2>All Residents (<span id="totalCount">0</span>)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Room</th><th>Phone</th><th>Email</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="residentBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    renderNav("residents.html");
+
+    var form = document.getElementById("residentForm");
+    var body = document.getElementById("residentBody");
+
+    function render() {
+      var list = getResidents();
+      document.getElementById("totalCount").textContent = list.length;
+      if (list.length === 0) {
+        body.innerHTML = '<tr><td colspan="5" class="empty">No residents yet. Add one above.</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(function (r) {
+        return "<tr>" +
+          "<td>" + esc(r.name) + "</td>" +
+          "<td>" + esc(r.room) + "</td>" +
+          "<td>" + esc(r.phone) + "</td>" +
+          "<td>" + esc(r.email || "-") + "</td>" +
+          '<td><div class="btn-row">' +
+            '<button class="btn btn-small" onclick="editResident(\'' + r.id + '\')">Edit</button>' +
+            '<button class="btn btn-small btn-danger" onclick="deleteResident(\'' + r.id + '\')">Delete</button>' +
+          "</div></td></tr>";
+      }).join("");
+    }
+
+    function clearErrors() {
+      ["nameErr", "roomErr", "phoneErr", "emailErr"].forEach(function (id) {
+        document.getElementById(id).textContent = "";
+      });
+    }
+
+    function validate(data) {
+      var ok = true;
+      clearErrors();
+      if (data.name.length < 2) { document.getElementById("nameErr").textContent = "Enter the resident's name."; ok = false; }
+      if (!data.room) { document.getElementById("roomErr").textContent = "Enter the room number."; ok = false; }
+      if (!/^\d{10}$/.test(data.phone)) { document.getElementById("phoneErr").textContent = "Phone must be exactly 10 digits."; ok = false; }
+      if (data.email && !/^\S+@\S+\.\S+$/.test(data.email)) { document.getElementById("emailErr").textContent = "Enter a valid email."; ok = false; }
+      return ok;
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var data = {
+        name: document.getElementById("name").value.trim(),
+        room: document.getElementById("room").value.trim().toUpperCase(),
+        phone: document.getElementById("phone").value.trim(),
+        email: document.getElementById("email").value.trim()
+      };
+      if (!validate(data)) return;
+
+      var list = getResidents();
+      var id = document.getElementById("residentId").value;
+
+      if (id) {
+        // EDIT existing resident
+        var r = list.find(function (x) { return x.id === id; });
+        r.name = data.name; r.room = data.room; r.phone = data.phone; r.email = data.email;
+        saveResidents(list);
+
+        // keep old complaints showing the updated name and room
+        var complaints = getComplaints();
+        complaints.forEach(function (c) {
+          if (c.residentId === id) { c.residentName = data.name; c.room = data.room; }
+        });
+        saveComplaints(complaints);
+        showToast("Resident updated");
+      } else {
+        // ADD new resident
+        data.id = newId("r");
+        list.push(data);
+        saveResidents(list);
+        showToast("Resident added");
+      }
+      resetForm();
+      render();
+    });
+
+    function editResident(id) {
+      var r = getResidents().find(function (x) { return x.id === id; });
+      document.getElementById("residentId").value = r.id;
+      document.getElementById("name").value = r.name;
+      document.getElementById("room").value = r.room;
+      document.getElementById("phone").value = r.phone;
+      document.getElementById("email").value = r.email || "";
+      document.getElementById("formTitle").textContent = "Edit Resident";
+      document.getElementById("saveBtn").textContent = "Save Changes";
+      document.getElementById("cancelBtn").style.display = "inline-block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function deleteResident(id) {
+      var r = getResidents().find(function (x) { return x.id === id; });
+      var linked = getComplaints().filter(function (c) { return c.residentId === id; }).length;
+      var msg = 'Delete "' + r.name + '"?';
+      if (linked > 0) msg += "\n\nThey have " + linked + " complaint(s). Those complaints will stay in the records.";
+      if (!confirm(msg)) return;
+      saveResidents(getResidents().filter(function (x) { return x.id !== id; }));
+      showToast("Resident deleted");
+      render();
+    }
+
+    function resetForm() {
+      form.reset();
+      document.getElementById("residentId").value = "";
+      document.getElementById("formTitle").textContent = "Add New Resident";
+      document.getElementById("saveBtn").textContent = "Add Resident";
+      document.getElementById("cancelBtn").style.display = "none";
+      clearErrors();
+    }
+    document.getElementById("cancelBtn").addEventListener("click", resetForm);
+
+    render();
+  </script>
+</body>
+</html>

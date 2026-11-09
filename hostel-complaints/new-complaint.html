@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Complaint - Hostel Complaint Management</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>New Complaint</h1>
+    <p class="subtitle">Report a maintenance problem. It will start as <strong>Pending</strong>.</p>
+
+    <div class="note" id="noResidents" style="display:none;">
+      No residents found. Please <a href="residents.html">add a resident</a> first.
+    </div>
+
+    <div class="card">
+      <form id="complaintForm" novalidate>
+        <div class="grid grid-2">
+          <div class="form-group">
+            <label for="resident">Resident *</label>
+            <select id="resident"></select>
+            <div class="error" id="residentErr"></div>
+          </div>
+          <div class="form-group">
+            <label for="room">Room Number *</label>
+            <input type="text" id="room" placeholder="Auto-filled from resident">
+            <div class="error" id="roomErr"></div>
+          </div>
+          <div class="form-group">
+            <label for="category">Category *</label>
+            <select id="category"></select>
+            <div class="error" id="categoryErr"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="description">Description *</label>
+          <textarea id="description" placeholder="Describe the problem clearly..."></textarea>
+          <div class="error" id="descErr"></div>
+        </div>
+        <button type="submit" class="btn">Submit Complaint</button>
+      </form>
+    </div>
+
+    <div class="card" id="successBox" style="display:none;">
+      <h2>✅ Complaint submitted</h2>
+      <p class="small" style="margin-bottom:12px;">Status: <span id="successStatus"></span>. You can follow it on the tracking page.</p>
+      <a href="track.html" class="btn">Go to Track Complaints</a>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    renderNav("new-complaint.html");
+
+    var residents = getResidents();
+    var residentSel = document.getElementById("resident");
+    var roomInput = document.getElementById("room");
+    var categorySel = document.getElementById("category");
+
+    // fill dropdowns
+    residentSel.innerHTML = '<option value="">-- Select resident --</option>' +
+      residents.map(function (r) {
+        return '<option value="' + r.id + '">' + esc(r.name) + " (" + esc(r.room) + ")</option>";
+      }).join("");
+    fillSelect(categorySel, CATEGORIES, "-- Select category --");
+
+    if (residents.length === 0) document.getElementById("noResidents").style.display = "block";
+
+    // auto-fill room when resident chosen
+    residentSel.addEventListener("change", function () {
+      var r = residents.find(function (x) { return x.id === residentSel.value; });
+      roomInput.value = r ? r.room : "";
+    });
+
+    function setErr(id, msg) { document.getElementById(id).textContent = msg; }
+
+    document.getElementById("complaintForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var resident = residents.find(function (x) { return x.id === residentSel.value; });
+      var room = roomInput.value.trim().toUpperCase();
+      var category = categorySel.value;
+      var description = document.getElementById("description").value.trim();
+
+      var ok = true;
+      setErr("residentErr", ""); setErr("roomErr", ""); setErr("categoryErr", ""); setErr("descErr", "");
+      if (!resident) { setErr("residentErr", "Please select a resident."); ok = false; }
+      if (!room) { setErr("roomErr", "Room number is required."); ok = false; }
+      if (!category) { setErr("categoryErr", "Please select a category."); ok = false; }
+      if (description.length < 10) { setErr("descErr", "Please describe the problem (at least 10 characters)."); ok = false; }
+      if (!ok) return;
+
+      var now = new Date().toISOString();
+      var list = getComplaints();
+      list.push({
+        id: newId("c"),
+        residentId: resident.id,
+        residentName: resident.name,
+        room: room,
+        category: category,
+        description: description,
+        status: "Pending",              // every new complaint starts as Pending
+        createdAt: now,
+        updatedAt: now,
+        history: [{ status: "Pending", at: now }]
+      });
+      saveComplaints(list);
+
+      this.reset();
+      document.getElementById("successStatus").innerHTML = badge("Pending");
+      document.getElementById("successBox").style.display = "block";
+      showToast("Complaint submitted");
+    });
+  </script>
+</body>
+</html>

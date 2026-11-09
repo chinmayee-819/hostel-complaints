@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Panel - Hostel Complaint Management</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Staff Panel</h1>
+    <p class="subtitle">Update complaint status. Residents see the latest status on the Track page.</p>
+
+    <div class="note">
+      <strong>Status order:</strong> Pending → In Progress → Resolved.
+      A complaint must be moved to <em>In Progress</em> before it can be marked <em>Resolved</em>.
+    </div>
+
+    <div class="card">
+      <div class="filters">
+        <div>
+          <label for="search">Search (resident name or room)</label>
+          <input type="text" id="search" placeholder="e.g. Sneha or B-204">
+        </div>
+        <div>
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter"></select>
+        </div>
+        <div>
+          <label for="categoryFilter">Category</label>
+          <select id="categoryFilter"></select>
+        </div>
+        <button class="btn btn-secondary" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Complaints (<span id="shownCount">0</span>)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Resident</th><th>Room</th><th>Category</th><th>Description</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody id="complaintBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    renderNav("staff.html");
+
+    var searchEl = document.getElementById("search");
+    var statusEl = document.getElementById("statusFilter");
+    var categoryEl = document.getElementById("categoryFilter");
+    var body = document.getElementById("complaintBody");
+
+    fillSelect(statusEl, STATUSES, "All statuses");
+    fillSelect(categoryEl, CATEGORIES, "All categories");
+
+    function render() {
+      var q = searchEl.value.trim().toLowerCase();
+      var list = getComplaints().filter(function (c) {
+        var matchSearch = !q || c.residentName.toLowerCase().includes(q) || c.room.toLowerCase().includes(q);
+        var matchStatus = !statusEl.value || c.status === statusEl.value;
+        var matchCategory = !categoryEl.value || c.category === categoryEl.value;
+        return matchSearch && matchStatus && matchCategory;
+      }).sort(function (a, b) {
+        // unresolved first, then oldest first
+        var ra = a.status === "Resolved" ? 1 : 0, rb = b.status === "Resolved" ? 1 : 0;
+        return ra - rb || new Date(a.createdAt) - new Date(b.createdAt);
+      });
+
+      document.getElementById("shownCount").textContent = list.length;
+
+      if (list.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="empty">No complaints found.</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(function (c) {
+        var next = nextStatus(c.status);
+        var action = next
+          ? '<button class="btn btn-small" onclick="updateStatus(\'' + c.id + '\', \'' + next + '\')">Mark ' + next + "</button>"
+          : '<span class="small">Completed ✔</span>';
+        return "<tr>" +
+          "<td>" + esc(c.residentName) + "</td>" +
+          "<td>" + esc(c.room) + "</td>" +
+          "<td>" + esc(c.category) + "</td>" +
+          "<td>" + esc(c.description) + '<div class="small">Reported: ' + formatDate(c.createdAt) + "</div></td>" +
+          "<td>" + badge(c.status) + "</td>" +
+          "<td>" + action + "</td></tr>";
+      }).join("");
+    }
+
+    function updateStatus(id, newStatus) {
+      var result = changeStatus(id, newStatus);
+      if (result.ok) {
+        showToast("Status changed to " + newStatus);
+      } else {
+        alert(result.message);
+      }
+      render();
+    }
+
+    searchEl.addEventListener("input", render);
+    statusEl.addEventListener("change", render);
+    categoryEl.addEventListener("change", render);
+    document.getElementById("clearBtn").addEventListener("click", function () {
+      searchEl.value = ""; statusEl.value = ""; categoryEl.value = "";
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

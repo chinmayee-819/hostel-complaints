@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Complaints - Hostel Complaint Management</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    details summary { cursor: pointer; color: var(--primary); font-size: .85rem; }
+    .timeline { list-style: none; margin-top: 6px; font-size: .82rem; color: var(--muted); }
+    .timeline li { margin-bottom: 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Track Complaints</h1>
+    <p class="subtitle">See the latest status of every complaint.</p>
+
+    <div class="card">
+      <div class="filters">
+        <div>
+          <label for="search">Search (resident name or room)</label>
+          <input type="text" id="search" placeholder="e.g. Ravi or A-101">
+        </div>
+        <div>
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter"></select>
+        </div>
+        <div>
+          <label for="categoryFilter">Category</label>
+          <select id="categoryFilter"></select>
+        </div>
+        <button class="btn btn-secondary" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Complaints (<span id="shownCount">0</span>)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Resident</th><th>Room</th><th>Category</th><th>Description</th><th>Status</th><th>Last Updated</th></tr>
+          </thead>
+          <tbody id="complaintBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    renderNav("track.html");
+
+    var searchEl = document.getElementById("search");
+    var statusEl = document.getElementById("statusFilter");
+    var categoryEl = document.getElementById("categoryFilter");
+    var body = document.getElementById("complaintBody");
+
+    fillSelect(statusEl, STATUSES, "All statuses");
+    fillSelect(categoryEl, CATEGORIES, "All categories");
+
+    function render() {
+      var q = searchEl.value.trim().toLowerCase();
+      var list = getComplaints().filter(function (c) {
+        var matchSearch = !q || c.residentName.toLowerCase().includes(q) || c.room.toLowerCase().includes(q);
+        var matchStatus = !statusEl.value || c.status === statusEl.value;
+        var matchCategory = !categoryEl.value || c.category === categoryEl.value;
+        return matchSearch && matchStatus && matchCategory;
+      }).sort(function (a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); });
+
+      document.getElementById("shownCount").textContent = list.length;
+
+      if (list.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="empty">No complaints found.</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(function (c) {
+        var steps = c.history.map(function (h) {
+          return "<li>" + esc(h.status) + " &ndash; " + formatDate(h.at) + "</li>";
+        }).join("");
+        return "<tr>" +
+          "<td>" + esc(c.residentName) + "</td>" +
+          "<td>" + esc(c.room) + "</td>" +
+          "<td>" + esc(c.category) + "</td>" +
+          "<td>" + esc(c.description) + "</td>" +
+          "<td>" + badge(c.status) +
+            '<details><summary>History</summary><ul class="timeline">' + steps + "</ul></details></td>" +
+          "<td>" + formatDate(c.updatedAt) + "</td></tr>";
+      }).join("");
+    }
+
+    searchEl.addEventListener("input", render);
+    statusEl.addEventListener("change", render);
+    categoryEl.addEventListener("change", render);
+    document.getElementById("clearBtn").addEventListener("click", function () {
+      searchEl.value = ""; statusEl.value = ""; categoryEl.value = "";
+      render();
+    });
+
+    // show latest status if staff updates it in another tab
+    window.addEventListener("storage", render);
+
+    render();
+  </script>
+</body>
+</html>
